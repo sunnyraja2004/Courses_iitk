@@ -1,0 +1,133 @@
+---
+title: "Rat Brain Dataset"
+author: "Sunny Raja Prasad"
+date: "2024-03-21"
+output:
+  pdf_document:
+    latex_engine: xelatex
+  html_document:
+
+---
+
+## Step 1: Load the Data and Create Variables
+
+we recode the REGION and TREATMENT variables to obtain results consistent with those in SAS, SPSS, and Stata. We first create a new factor REGION.F, which has VDB (REGION=3) as the lowest value (equal to zero). We then create TREAT, which is an indicator variable for the carbachol treatment (TREAT=1 for carbachol, TREAT=0 for basal).
+
+```{r load_data}
+# Load the Rat Brain data
+library(WWGbook)
+data(rat.brain)
+# Create a new factor REGION.F,which has VDB (REGION=3) as the lowest value (equal to zero).
+rat.brain$region.f <- 0
+rat.brain$region.f[rat.brain$region == 1] <- 1
+rat.brain$region.f[rat.brain$region == 2] <- 2
+rat.brain$region.f[rat.brain$region == 3] <- 0
+# Create TREAT, which is an indicator variable for the carbachol treatment 
+# i.e (TREAT=1 for carbachol, TREAT=0 for basal)
+rat.brain$treat <- ifelse(rat.brain$treatment == 1, 0, 1)
+
+```
+***Description of Variables***
+
+### Rat (Level 2) Variable
+
+- **ANIMAL:** Unique identifier for each rat.
+
+### Repeated-Measures (Level 1) Variables
+
+- **TREATMENT:** Level of drug treatment.
+  - 1 = Basal
+  - 2 = Carbachol
+
+- **REGION:** Brain nucleus.
+  - 1 = BST (Bed nucleus of the stria terminalis)
+  - 2 = LS (Lateral septum)
+  - 3 = VDB (Ventral tegmental area, dorsolateral part)
+
+- **ACTIVATE:** Nucleotide activation (the dependent variable).
+
+## Step 2: Fit Model 5.1
+
+```{r fit_model5.1}
+library(nlme)
+# Fit a model with a “loaded” mean structure (Model 5.1)
+# Model 5.1.
+model5.1.fit <- lme(activate ~ region.f*treat, 
+                      random = ~1 | animal, method = "REML", data = rat.brain)
+# Summary of Model 5.1
+summary(model5.1.fit)
+
+plot(model5.1.fit)
+
+# Type I(sequential) F-tests for the fixed effects in this model
+anova(model5.1.fit)
+```
+
+## Step 3: Select a Structure for Random Effects (Model 5.1 vs. Model 5.2)
+
+Modifying the random effects specification in Model 5.1 to include random TREAT effects associated with each animal. The random effects associated with the intercept for each animal will be included in the model by default, and an "unstructured" covariance structure for the D matrix will also be used by default
+
+```{r fit_model5.2}
+# Fit Model 5.2
+model5.2.fit <- update(model5.1.fit, random = ~treat | animal, 
+                       control = lmeControl(opt = "optim", maxIter = 100))
+
+# Summary of Model 5.2
+summary(model5.2.fit)
+```
+
+```{r}
+# Type I(sequential) F-tests for Model 5.2
+anova(model5.2.fit)
+
+# Likelihood ratio test for Hypothesis 5.1
+anova(model5.1.fit, model5.2.fit)
+```
+
+The test statistic is significant (p \< .001), so we decide to reject the null hypothesis and retain the random treatment effects in the model; Model 5.2 is our preferred model at this stage of the analysis.
+
+## Step 4: Select a Covariance Structure for Residuals (Model 5.2 vs. Model 5.3)
+
+We fit Model 5.3, which has a heterogeneous variance structure for the $R_i$ matrix (i.e., it allows the residual variances to differ for the two levels of TREAT). This is accomplished by using the weights argument, as shown in the following syntax:
+
+```{r fit_model5.3}
+# Fit Model 5.3
+model5.3.fit <- lme(activate ~ region.f*treat, 
+                    random = ~treat | animal, 
+                    weights = varIdent(form = ~1 | treat), 
+                    data = rat.brain,
+                    control = lmeControl(opt = "optim", maxIter = 100))
+
+# Summary of Model 5.3
+summary(model5.3.fit)
+```
+**Hypothesis 5.2**
+
+*Null Hypothesis (H0):* The variance of the residuals is equal across both treatments.
+\[H_0: \sigma^2_{\text{basal}} = \sigma^2_{\text{carb}}\]
+
+*Alternative Hypothesis (HA):* The variance of the residuals is not equal across both treatments.
+\[H_A: \sigma^2_{\text{basal}} \neq \sigma^2_{\text{carb}}\]
+
+**Hypothesis 5.3**
+
+*Null Hypothesis (H0):* The fixed effects associated with the region by treatment interaction can be omitted from Model 5.2.
+\[ H_0: \beta_4 = \beta_5 = 0 \]
+
+*Alternative Hypothesis (HA):* The fixed effects associated with the region by treatment interaction cannot be omitted from Model 5.2.
+\[ H_A: \beta_4 \neq 0 \text{ or } \beta_5 \neq 0 \]
+
+We now test Hypothesis 5.2 with a likelihood ratio test, to decide if we wish to retain the heterogeneous residual variance structure. To calculate the test statistic, we subtract the −2 REML log-likelihood of Model 5.3 (the reference model, with heterogeneous residual variances) from that for Model 5.2 (the nested model)The asymptotic distribution of the test statistic under the null hypothesis is a (\(\chi^2_1\))
+
+```{r}
+# Likelihood ratio test for Hypothesis 5.2
+anova(model5.2.fit, model5.3.fit)
+```
+
+The result of this test is not significant (p = .6965), so we keep Model 5.2 as our preferred model at this stage of the analysis
+
+## Step 5: Reduce the Model by Removing Nonsignificant Fixed Effects (Model 5.2)
+
+
+The Type I F-tests reported for the fixed effects in Model 5.2 indicate that the fixed effects associated with the REGION × TREAT interaction are significant (p \< .05),so we reject the null hypothesis for Hypothesis 5.3. We therefore retain these fixed effects,and select Model 5.2 as our final model.
+

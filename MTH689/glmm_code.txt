@@ -1,0 +1,36 @@
+Constructing the Penalty Matrix: S = Sfunc(x_knots) calls the Sfunc function defined earlier with the specified knots (x_knots) to construct the penalty matrix S. This matrix represents the penalty applied to the spline coefficients to control the smoothness of the fitted curve.
+
+Calculating Eigenvalues and Eigenvectors: init = eigen(S) calculates the eigenvalues and eigenvectors of the penalty matrix S. The resulting init object contains the eigenvalues in init$values and the corresponding eigenvectors in init$vectors.
+
+Selecting Positive Eigenvalues: poseigen = which(diag(D) > 0) identifies the indices of the positive eigenvalues from the diagonal matrix D containing the eigenvalues. This step is necessary to select the subset of eigenvectors corresponding to positive eigenvalues.
+
+Extracting Positive Eigenvalues and Eigenvectors: Dpos = D[poseigen, poseigen] extracts the smallest submatrix containing all positive eigenvalues from the diagonal matrix D, and U_R = U[, 1:(ncol(U)-ncol(U_F))] extracts the corresponding subset of eigenvectors from the eigenvector matrix U. These positive eigenvalues and eigenvectors will be used in subsequent calculations.
+
+Partitioning Eigenvectors: U_F = U[, (ncol(U)-1):ncol(U)] and U_R = U[, 1:(ncol(U)-ncol(U_F))] partition the eigenvector matrix U into two parts: U_F containing eigenvectors corresponding to the fixed part of the model (to be estimated without penalization) and U_R containing eigenvectors corresponding to the random part of the model (to be estimated with penalization).
+
+Calculating the Fixed and Random Components: X_F = Xf %*% U_F multiplies the spline model matrix Xf by the eigenvectors U_F corresponding to the fixed part, resulting in the fixed part of the model. Similarly, X_R = Xf %*% U_R multiplies the spline model matrix Xf by the eigenvectors U_R corresponding to the random part, yielding the random part of the model.
+
+Calculating the Penalized Random Effects: Z = X_R %*% sqrt(Dpos) applies the square root of the positive eigenvalues Dpos to the random part of the model X_R to obtain the penalized random effects Z. These penalized random effects are used in subsequent modeling steps.
+Loading Required Libraries: The library(mgcv) and library(gamm4) commands load the required libraries mgcv and gamm4, which provide functions for fitting generalized additive models (GAMs) and GAMMs, respectively.
+
+Model Fitting: modGam = gamm4(Reaction ~ Days, random=~(1|Subject), data=sleepstudy) fits a GAMM to the data. Here's what each part of the model formula represents:
+
+Reaction ~ Days: Specifies the response variable (Reaction) and the predictor variable (Days).
+random=~(1|Subject): Indicates that we want to include random intercepts for the variable Subject. The (1|Subject) term specifies that we are modeling a random intercept for each level of the Subject variable.
+data=sleepstudy: Specifies the dataset (sleepstudy) containing the variables used in the model.
+Model Summary: summary(modGam$mer) provides a summary of the fitted GAMM model. The $mer component of the modGam object contains the mixed-effects model results. The summary function provides various statistics and information about the model, such as the estimated fixed effects, random effects, and model diagnostics.
+
+Overall, this code segment fits a GAMM model to the sleepstudy dataset, which likely contains information about reaction times (Reaction) recorded over time (Days) for multiple subjects (Subject). The model includes random intercepts for each subject to account for potential correlations within subjects' repeated measurements. The summary function then summarizes the model results for interpretation and diagnostics.
+Model Fitting:
+
+modGamS = gamm4(Reaction ~ s(Days, bs='cs'), random=~(1|Subject), data=sleepstudy): This command fits a GAMM to the data. Here's what each part of the model formula represents:
+Reaction ~ s(Days, bs='cs'): Specifies the response variable (Reaction) and a smooth term of the predictor variable (Days). The s() function indicates a smooth term, and bs='cs' specifies a cubic spline basis for the smooth term.
+random=~(1|Subject): Indicates that we want to include random intercepts for the variable Subject, similar to the previous model.
+data=sleepstudy: Specifies the dataset (sleepstudy) containing the variables used in the model.
+Model Summary:
+
+summary(modGamS$mer): Provides a summary of the fitted GAMM model. The $mer component of the modGamS object contains the mixed-effects model results, similar to the previous model.
+Model Plotting:
+
+plot(modGamS$gam): Generates a diagnostic plot for the smooth term in the model. This plot provides visual information about the smooth term's fit to the data, including any nonlinear patterns or trends captured by the smooth function.
+Overall, this code segment fits a GAMM model to the sleepstudy dataset, similar to the previous model, but with a smooth term for the Days predictor variable. The model includes random intercepts for each subject to account for potential correlations within subjects' repeated measurements. The summary function provides a summary of the model results, and the plot function generates a diagnostic plot for the smooth term.
